@@ -37,5 +37,9 @@ c29tZV9zdHJpbmc=
 # Usage:
 Note: the default option is --vpn=v
 
-<code>sudo python2 otp.py --vpn <v/o/p></code>
+<code>sudo python2.7 otp.py --vpn <v/o/p></code>
 
+It might be beneficial to make a patch which includs proprietary information for your organization,
+to apply the patch, make sure the patch is in the repository folder and apply it by running:
+
+<code>patch < add_proprietary_resources.patch </code>
