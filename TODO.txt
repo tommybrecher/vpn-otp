@@ -1,0 +1,4 @@
+TODO: Read credentials from config file
+TODO: Add support for generating config file on first run
+TODO: Add support script for installing brew dependencies, python dependencies, etc..
+TODO: Fix while loop for openconnect
