@@ -1,91 +1,80 @@
-#! /usr/bin/env python
+#! /usr/bin/env python3
 import sys
 import pyotp
 import base64
 import pexpect
 import click
 
-help = "v -> VPN V\n o -> VPN O\n p -> VPN P"
-
 @click.command()
-@click.option('--vpn', default='v', type=click.Choice(['v','o','p']), help=help)
+@click.option('--vpn', default='v', type=click.Choice(['v', 'o', 'p']))
 @click.option('--debug', is_flag=True, help='Enable debugging - prints output to stdout')
-def main(vpn, debug):
-    username = 'XXXX'
-    pwd = base64.b64decode('XXXX')
+@click.option('--creds-only', is_flag=True, help='prints out the credentials only')
+def main(vpn, debug, creds_only):
+
+    log_level = sys.stdout if debug else None
+    username = ''
+    totp = pyotp.totp.TOTP('')
+    pwd = base64.b64decode('').decode()
+    config_path = ''
+    pulse_url = ''
+
+    vpn_commands = {
+        'v': f'openvpn {config_path}/v.ovpn',
+        'o': f'openvpn {config_path}/o.ovpn',
+        'p': f'openconnect --no-dtls -q --juniper -u {username} {pulse_url}'
+    }
+
+    if creds_only:
+        print(f'--user={username} --password={pwd}{totp.now()}')
+        sys.exit(0)
 
     while True:
 
-        totp = pyotp.totp.TOTP('XXXX')
-        password = '{}{}'.format(pwd, totp.now())
+        if (vpn == 'v' or vpn == 'o'):
 
-        if vpn == 'v':
-            command = 'path/to/vpn-v.ovpn'
-
-        elif vpn == 'o':
-            command = '/path/to/vpn-o.ovpn'
-
-        elif vpn == 'p':
-            command = 'openconnect --juniper url.of.vpn-p.com'
-
-        else:
-            sys.exit()
-
-        if vpn == 'p':
-
-            process = pexpect.spawn(command)
-
-            if debug:
-                process.logfile = sys.stdout
-
-            try:
-                process.expect('username:')
-                process.sendline(username)
-                process.expect('password:')
-                process.sendline(password)
-                print 'Connected'
-
-                while True:
-                    process.expect('.+', timeout=None)
-                    output = process.match.group(0)
-                    if output != '\r\n':
-                        print 'openconnect: ', output
-                        break
-
-            except pexpect.EOF:
-                print 'Invalid username and/or password'
-
-            except pexpect.TIMEOUT:
-                print 'Connection failed!'
-
-        else:
-
-            process = pexpect.spawn(command)
-
-            if debug:
-                process.logfile = sys.stdout
-
+            process = pexpect.spawn(f'{vpn_commands[vpn]}', encoding='utf-8', logfile=log_level)
             try:
                 process.expect('Enter Auth Username:')
                 process.sendline(username)
                 process.expect('Enter Auth Password:')
-                process.sendline(password)
-                print 'Attempting connection'
+                process.sendline(f'{pwd}{totp.now()}')
                 process.expect('Initialization Sequence Completed')
-                print 'Connected'
-                # Attempt reconnection
+                print('Connected')
+
                 while True:
                     process.expect('.+', timeout=None)
                     output = process.match.group(0)
                     if output != '\r\n':
-                        print 'openvpn: ', output
+                        print(f'openvpn: {output}')
                         break
 
             except pexpect.EOF:
-                print 'Invalid username and/or password'
+                print('Invalid username and/or password')
 
             except pexpect.TIMEOUT:
-                print 'Cannot connect to OpenVPN server!'
+                print('Cannot connect to OpenVPN server!')
+
+        elif vpn == 'p':
+
+            process = pexpect.spawn(f'{vpn_commands[vpn]}', encoding='utf-8', logfile=log_level)
+            try:
+                process.expect('password:')
+                process.sendline(f'{pwd}{totp.now()}')
+                print('Connected')
+                process.interact()
+
+                while True:
+                    process.match('(error|invalid|failed)/ig', timeout=None)
+                    output = process.match.group(0)
+                    if output != '\r\n':
+                        print(f'openconnect: {output}')
+                        break
+
+            except pexpect.EOF:
+                print('Invalid username and/or password')
+
+            except pexpect.TIMEOUT:
+                print('Connection failed!')
 
 
 if __name__ == '__main__':
