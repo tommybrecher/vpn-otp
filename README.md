@@ -7,37 +7,23 @@ and automatically reconnect on disconnect.
 - OpenConnect (for conneting to OpenConnet based VPN connections)
 
 # Installation on macOS
-```
-brew install openconnect openvpn
-pip2.7 install -r requirments.txt
-```
+Installing Brew requirments:
+<code>brew install openconnect openvpn</code>
+
+Installing Python requirments:
+<code>pip3 install -r requirments.txt</code>
 
 # Configure:
 
-Replace XXXX with your username
+A Prompt will appear when running this app for the first time,
+A configuration file will be generated in users home folder:
 
-<code>username = 'XXXX'</code>
-
-Replace XXXX with your password (base64 encoded)
-
-<code>pwd = base64.b64decode('XXXX')</code>
-
-Replace XXXX with your TOTP token 
-
-<code>totp = pyotp.totp.TOTP('XXXX')</code>
-
-# Encoding string to base64 with python2.7
-```
-#! /usr/bin/env python
-import base64
-print(base64.b64encode('string_to_encode'))
-c29tZV9zdHJpbmc=
-```
+<code> ~/.pyotp/config</code>
 
 # Usage:
-Note: the default option is --vpn=v
+Note: the default option is --vpn=va
 
-<code>sudo python2.7 otp.py --vpn <v/o/p></code>
+<code>sudo ./otp.py --vpn <va/or/pulse></code>
 
 It might be beneficial to make a patch which includes proprietary information for your organization,
 to apply the patch, make sure the patch is in the repository folder and apply it by running:
