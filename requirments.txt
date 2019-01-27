@@ -1,4 +1,4 @@
-pexpect==4.4.0
-ptyprocess==0.5.2
-pyotp==2.2.6
-click==6.7
+pexpect==4.6.0
+ptyprocess==0.6.0
+pyotp==2.2.7
+Click==7.0

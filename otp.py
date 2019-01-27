@@ -4,46 +4,85 @@ import pyotp
 import base64
 import pexpect
 import click
+from os.path import join, exists
+from os import makedirs
+from getpass import getuser, getpass
+from configparser import ConfigParser
+
+
+def read_config():
+    """
+    Reads the configuration file or create a new one if missing 
+    """
+    cfg_dir = click.get_app_dir('pyotp', force_posix=True)
+    cfg = join(cfg_dir, 'config')
+    parser = ConfigParser()
+
+    if exists(cfg):
+        with open(file=cfg, mode='r') as config_file:
+            parser.read(cfg)
+        return parser
+
+    if not exists(cfg_dir):
+        """
+        Create directory and config file
+        """
+        print(f'Generating new configuration file at: {cfg}')
+        makedirs(cfg_dir, exist_ok=True)
+
+    parser['default'] = dict(
+        username=getuser(),
+        password=getpass(),
+        otptoken=input('Token: ')
+    )
+
+    with open(file=cfg, mode='w') as config_file:
+        parser.write(config_file)
+
+    return parser
+
 
 @click.command()
-@click.option('--vpn', default='v', type=click.Choice(['v', 'o', 'p']))
-@click.option('--debug', is_flag=True, help='Enable debugging - prints output to stdout')
-@click.option('--creds-only', is_flag=True, help='prints out the credentials only')
+@click.option('--vpn', default='va', type=click.Choice(['va', 'or', 'pulse']))
+@click.option('--debug', is_flag=True, help='Prints output to stdout')
+@click.option('--creds-only', is_flag=True, help='Only prints credentials')
 def main(vpn, debug, creds_only):
-
     log_level = sys.stdout if debug else None
-    username = ''
-    totp = pyotp.totp.TOTP('')
-    pwd = base64.b64decode('').decode()
-    config_path = ''
+    cfg_path = ''
     pulse_url = ''
-
-    vpn_commands = {
-        'v': f'openvpn {config_path}/v.ovpn',
-        'o': f'openvpn {config_path}/o.ovpn',
-        'p': f'openconnect --no-dtls -q --juniper -u {username} {pulse_url}'
+    commands = {
+        'va': f'openvpn {cfg_path}/va.ovpn',
+        'or': f'openvpn {cfg_path}/or.ovpn',
+        'pulse': f'openconnect --no-dtls -q --juniper -u {username} {pulse_url}'
     }
 
     if creds_only:
-        print(f'--user={username} --password={pwd}{totp.now()}')
-        sys.exit(0)
+        print(f'--user={username} --password={password}{otptoken.now()}')
+        exit()
 
     while True:
+        if ('va' in vpn or 'or' in vpn):
+            process = pexpect.spawn(
+                f'{commands[vpn]}',
+                encoding='utf-8',
+                logfile=log_level
+            )
 
-        if (vpn == 'v' or vpn == 'o'):
-
-            process = pexpect.spawn(f'{vpn_commands[vpn]}', encoding='utf-8', logfile=log_level)
             try:
                 process.expect('Enter Auth Username:')
                 process.sendline(username)
+
                 process.expect('Enter Auth Password:')
-                process.sendline(f'{pwd}{totp.now()}')
+                process.sendline(f'{password}{otptoken.now()}')
+
                 process.expect('Initialization Sequence Completed')
+
                 print('Connected')
 
                 while True:
                     process.expect('.+', timeout=None)
                     output = process.match.group(0)
+
                     if output != '\r\n':
                         print(f'openvpn: {output}')
                         break
@@ -54,18 +93,18 @@ def main(vpn, debug, creds_only):
             except pexpect.TIMEOUT:
                 print('Cannot connect to OpenVPN server!')
 
-        elif vpn == 'p':
+        elif 'pulse' in vpn:
 
-            process = pexpect.spawn(f'{vpn_commands[vpn]}', encoding='utf-8', logfile=log_level)
+            process = pexpect.spawn(f'{commands[vpn]}', encoding='utf-8', logfile=log_level)
             try:
                 process.expect('password:')
-                process.sendline(f'{pwd}{totp.now()}')
+                process.sendline(f'{password}{otptoken.now()}')
                 print('Connected')
-                process.interact()
 
                 while True:
-                    process.match('(error|invalid|failed)/ig', timeout=None)
+                    process.expect(r'(error|invalid|failed)/ig', timeout=None)
                     output = process.match.group(0)
+
                     if output != '\r\n':
                         print(f'openconnect: {output}')
                         break
@@ -78,4 +117,9 @@ def main(vpn, debug, creds_only):
 
 
 if __name__ == '__main__':
+    global username, password, otptoken
+    cfg = read_config()
+    username = cfg['default']['username']
+    password = cfg['default']['password']
+    otptoken = pyotp.totp.TOTP(cfg['default']['otptoken'])
     main()
