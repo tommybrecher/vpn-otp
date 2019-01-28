@@ -5,12 +5,16 @@ import base64
 import pexpect
 import click
 from os.path import join, exists
-from os import makedirs
+from os import makedirs, urandom
 from getpass import getuser, getpass
 from configparser import ConfigParser
+from cryptography.fernet import Fernet
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
 
-def read_config():
+def read_config(salt=None):
     """
     Reads the configuration file or create a new one if missing 
     """
@@ -19,28 +23,45 @@ def read_config():
     parser = ConfigParser()
 
     if exists(cfg):
-        with open(file=cfg, mode='r') as config_file:
-            parser.read(cfg)
-        return parser
+        parser.read(cfg)
+        salt = bytes.fromhex(
+            parser['default']['salt']
+        )
+        token = bytes.fromhex(
+            parser['default']['token']
+        )
+        return salt, token
 
     if not exists(cfg_dir):
-        """
-        Create directory and config file
-        """
         print(f'Generating new configuration file at: {cfg}')
         makedirs(cfg_dir, exist_ok=True)
+   
+    salt = urandom(16)
+    fernet = crypt(password, salt)
+    token = getpass(prompt='Token: ')
+    encrypted = fernet.encrypt(token.encode())
 
     parser['default'] = dict(
-        username=getuser(),
-        password=getpass(),
-        otptoken=input('Token: ')
+        token=encrypted.hex(),
+        salt=salt.hex()
     )
 
     with open(file=cfg, mode='w') as config_file:
         parser.write(config_file)
 
-    return parser
+    return salt, token
 
+
+def crypt(psk, salt):
+    kdf = PBKDF2HMAC(
+        algorithm=hashes.SHA256(),
+        length=32,
+        salt=salt,
+        iterations=100000,
+        backend=default_backend()
+    )
+    key = base64.urlsafe_b64encode(kdf.derive(psk.encode()))
+    return Fernet(key)
 
 @click.command()
 @click.option('--vpn', default='va', type=click.Choice(['va', 'or', 'pulse']))
@@ -48,11 +69,11 @@ def read_config():
 @click.option('--creds-only', is_flag=True, help='Only prints credentials')
 def main(vpn, debug, creds_only):
     log_level = sys.stdout if debug else None
-    cfg_path = ''
+    cfg_path = click.get_app_dir('pyotp', force_posix=True)
     pulse_url = ''
     commands = {
-        'va': f'openvpn {cfg_path}/va.ovpn',
-        'or': f'openvpn {cfg_path}/or.ovpn',
+        'va': f'sudo openvpn {cfg_path}/va.ovpn',
+        'or': f'sudo openvpn {cfg_path}/or.ovpn',
         'pulse': f'openconnect --no-dtls -q --juniper -u {username} {pulse_url}'
     }
 
@@ -69,6 +90,9 @@ def main(vpn, debug, creds_only):
             )
 
             try:
+                process.expect('Password:')
+                process.sendline(password)
+
                 process.expect('Enter Auth Username:')
                 process.sendline(username)
 
@@ -117,9 +141,16 @@ def main(vpn, debug, creds_only):
 
 
 if __name__ == '__main__':
-    global username, password, otptoken
-    cfg = read_config()
-    username = cfg['default']['username']
-    password = cfg['default']['password']
-    otptoken = pyotp.totp.TOTP(cfg['default']['otptoken'])
+    # Getting credentials and reading config file
+    username, password = getuser(), getpass()
+    salt, token = read_config()
+    
+    # Decryption of the key 
+    fernet = crypt(password, salt)
+    token = fernet.decrypt(token).decode()
+
+    # Creating an instance of pyotp 
+    otptoken = pyotp.totp.TOTP(token)
+
+    # Launching the script
     main()
