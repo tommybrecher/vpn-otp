@@ -1,9 +1,9 @@
 # vpn-otp
 Connect to openconnect VPNs which require OTP password automatically
-and automatically reconnect on disconnect.
+with automatic reconnection on disconnect.
 
 # Dependencies:
-- OpenConnect (for conneting to OpenConnet based VPN connections)
+- OpenConnect (for connecting to OpenConnect based VPNs)
 
 # Installation on macOS
 Installing Brew requirments:
@@ -21,7 +21,25 @@ A configuration file will be generated in users home folder:
 
 # Usage:
 
-<code>sudo pipenv run pyotp-vpn</code>
+<code>pipenv run pyotp-vpn</code>
 
-It might be beneficial to make a patch which includes proprietary information for your organization,
-to apply the patch, make sure the patch is in the repository folder and apply it by running:
+It might be beneficial to make a patch which includes proprietary information for your organization.
+
+Configuration arguments:
+args = Any configuration flags that would normally be passed to openconnect, for example --no-dtls or --protocol=pulse
+routes = a new-line seperated list of prefixes (routes) to be added by vpn-slice (Split-tunnel allowed networks)
+domains = a new-line seperated list of domain names we want to add a resolver for (DNS via VPN)
+# Example ~/.pyotp/config file
+```
+[pulse]
+args = --protocol=pulse --no-dtls <--other-options--> <--vpn-url-->
+routes =
+        10.0.0.0/8
+        172.16.0.0/12
+        8.8.8.0/24
+
+domains =
+        domain1.com
+        domain2.com
+        domain3.com
+```
