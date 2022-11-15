@@ -19,7 +19,7 @@ python_version = "3.11"
 
 [scripts]
 vpn = "sudo python pyotp-vpn.py --debug"
-pyotp-vpn = "sudo python pyotp-vpn"
+pyotp-vpn = "sudo python pyotp-vpn.py"
 
 [pipenv]
 allow_prereleases = true
