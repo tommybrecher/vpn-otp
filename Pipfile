@@ -1,0 +1,25 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+pyotp = "*"
+click = "*"
+pexpect = "*"
+cryptography = "*"
+cffi = "*"
+keyring = "*"
+
+[dev-packages]
+black = "*"
+
+[requires]
+python_version = "3.11"
+
+[scripts]
+vpn = "sudo python pyotp-vpn.py --debug"
+pyotp-vpn = "sudo python pyotp-vpn.py"
+
+[pipenv]
+allow_prereleases = true
